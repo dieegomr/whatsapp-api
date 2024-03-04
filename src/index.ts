@@ -3,11 +3,14 @@ import dotenv from 'dotenv';
 import bodyParser from 'body-parser';
 import evolutionAPI from './evolutionAPI.js';
 import mongoDb from './mongoDb.js';
+import rabbitMQ from './rabbitMq.js';
 
 dotenv.config();
 
 const port = process.env.PORT || 3000;
 const app = express();
+const instanceName = process.env.EVOLUTION_INSTANCE_NAME;
+const channel = await rabbitMQ.createChannel(process.env.RABBITMQ_URI);
 
 app.use(bodyParser.json());
 
@@ -60,6 +63,23 @@ app.get('/messages/:phoneNumber', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: 'Something went wrong' });
   }
+});
+
+/*
+Listen to RabbitMQ queues
+
+The following code listens to the messages.upsert and send.message queues. When a message is received, it logs the message to the console.
+instanceName is the name of the instance, which is retrieved from the EVOLUTION_INSTANCE_NAME environment variable.
+*/
+
+rabbitMQ.consumeQueue(channel, `${instanceName}.messages.upsert`, (message) => {
+  console.log('🔥 Received message: ');
+  console.log(JSON.parse(message.content.toString()));
+});
+
+rabbitMQ.consumeQueue(channel, `${instanceName}.send.message`, (message) => {
+  console.log('🔥 Message sent: ');
+  console.log(JSON.parse(message.content.toString()));
 });
 
 app.listen(port, () => {
